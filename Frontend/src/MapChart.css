@@ -1,0 +1,39 @@
+/* MapChart.css */
+.map-chart-container {
+    position: relative;
+    padding: 20px;
+  }
+  
+  .hover-info {
+    padding: 10px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .state-info {
+    font-weight: bold;
+  }
+  
+  .loading-indicator {
+    text-align: center;
+    padding: 10px;
+  }
+  
+  .languages-info {
+    margin-top: 10px;
+  }
+  
+  .languages-info h3 {
+    margin-bottom: 5px;
+  }
+  
+  .languages-info ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .languages-info li {
+    margin-bottom: 5px;
+  }
+  

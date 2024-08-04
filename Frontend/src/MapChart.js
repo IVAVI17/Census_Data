@@ -1,14 +1,17 @@
 import React, { useState } from "react";
 import DatamapsIndia from "react-datamaps-india";
 import axios from "axios";
+import "./MapChart.css"; 
 
 const MapChart = () => {
   const [hoveredState, setHoveredState] = useState("");
   const [topLanguages, setTopLanguages] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const handleHover = async (stateName) => {
     if (stateName !== hoveredState) {
       setHoveredState(stateName);
+      setLoading(true);
       try {
         const response = await axios.post(
           "http://127.0.0.1:8000/most_spoken_languages/",
@@ -26,11 +29,12 @@ const MapChart = () => {
       } catch (error) {
         console.error("Error fetching languages:", error);
       }
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className="map-chart-container">
       <DatamapsIndia
         style={{ position: "relative", left: "25%" }}
         regionData={{
@@ -72,21 +76,25 @@ const MapChart = () => {
         hoverComponent={({ value }) => {
           handleHover(value.name);
           return (
-            <div>
-              <div>
-                {value.name} {value.value} 
+            <div className="hover-info">
+              <div className="state-info">
+                {value.name} {value.value}
               </div>
-              {hoveredState === value.name && topLanguages.length > 0 && (
-                <div>
-                  <h3>Top 3 Most Spoken Languages in {hoveredState}</h3>
-                  <ul>
-                    {topLanguages.map((language, index) => (
-                      <li key={index}>
-                        {language["Mother tongue name"]}: {language["Urban P"]}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              {loading && hoveredState === value.name ? (
+                <div className="loading-indicator">Loading...</div>
+              ) : (
+                hoveredState === value.name && topLanguages.length > 0 && (
+                  <div className="languages-info">
+                    <h3>Top 3 Most Spoken Languages in {hoveredState}</h3>
+                    <ul>
+                      {topLanguages.map((language, index) => (
+                        <li key={index}>
+                          {language["Mother tongue name"]}: {language["Urban P"]}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
               )}
             </div>
           );
@@ -98,10 +106,10 @@ const MapChart = () => {
           hoverTitle: "Count",
           noDataColor: "#f5f5f5",
           borderColor: "#8D8D8D",
-          hoverColor: "blue",
+          hoverColor: "#0080ff",
           hoverBorderColor: "green",
-          height: 50,
-          weight: 30
+          height: 500,
+          weight: 300
         }}
       />
     </div>
