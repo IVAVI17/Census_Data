@@ -81,7 +81,7 @@ async def most_spoken_languages(request: RequestModel):
         raise HTTPException(status_code=500, detail=str(e))
     
 def get_district_code(state_name: str, district_name: str) -> str:
-    census_file_path = r"C:\Users\DELL\Downloads\Census_Data\Statutory Town-02_07_2019.xlsx"
+    census_file_path = r"./District_Codes.xlsx" 
     if not os.path.exists(census_file_path):
         raise HTTPException(status_code=404, detail="Census file not found")
 
