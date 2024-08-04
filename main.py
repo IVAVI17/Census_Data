@@ -47,9 +47,12 @@ async def most_spoken_languages(request: RequestModel):
         # df_grouped = df_filtered[['Mother tongue name', 'Urban P']].groupby('Mother tongue name').sum().reset_index()
         
         df_filtered = df_filtered.sort_values(by='Urban P', ascending=False)
-
-        # Drop duplicates, keeping the first (which has the highest 'Urban P')
-        df_filtered = df_filtered.drop_duplicates(subset=['Mother tongue name'], keep='first')
+        
+        df_reversed = df_filtered.iloc[::-1]
+        
+        df_deduped_reversed = df_reversed.drop_duplicates(subset=['Mother tongue name'], keep='first')
+        
+        df_filtered = df_deduped_reversed.iloc[::-1]
         
         df_grouped = df_filtered[['Mother tongue name', 'Urban P']]
 
@@ -182,9 +185,12 @@ async def generate_top_languages_report():
 
                
                 df_filtered = df_filtered.sort_values(by='Urban P', ascending=False)
-
                 
-                df_filtered = df_filtered.drop_duplicates(subset=['Mother tongue name'], keep='first')
+                df_reversed = df_filtered.iloc[::-1]
+
+                df_deduped_reversed = df_reversed.drop_duplicates(subset=['Mother tongue name'], keep='first')
+                
+                df_filtered = df_deduped_reversed.iloc[::-1]
                 
                 df_grouped = df_filtered[['Mother tongue name', 'Urban P']]
                  
