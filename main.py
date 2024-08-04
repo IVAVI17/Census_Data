@@ -79,18 +79,26 @@ async def most_spoken_languages(request: RequestModel):
         return {"state": state_name, "top_languages": top_languages}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
     
 def get_district_code(state_name: str, district_name: str) -> str:
-    census_file_path = r"./District_Codes.xlsx" 
+    census_file_path = r"./District_Codes.xlsx"
     if not os.path.exists(census_file_path):
         raise HTTPException(status_code=404, detail="Census file not found")
 
     census_df = pd.read_excel(census_file_path)
+    
+    # Print actual columns for debugging
+    print("Columns in census file:", census_df.columns.tolist())
 
+    # Clean column names by stripping leading/trailing whitespace and newlines
+    census_df.columns = census_df.columns.str.replace('\n', ' ').str.strip()
+    
     # Ensure column names are correctly identified
     expected_columns = ['State', 'State Code', 'District Code', 'District Name']
     if not all(col in census_df.columns for col in expected_columns):
-        raise HTTPException(status_code=500, detail=f"Expected columns {expected_columns} not found in census file")
+        raise HTTPException(status_code=500, detail=f"500: Expected columns {expected_columns} not found in census file. Actual columns: {census_df.columns.tolist()}")
 
     # Filter the row that matches the state name and district name
     row = census_df[(census_df['State'].str.strip().str.lower() == state_name.strip().lower()) &
@@ -101,6 +109,7 @@ def get_district_code(state_name: str, district_name: str) -> str:
 
     district_code = row.iloc[0]['District Code']
     return str(district_code)
+
 
 @app.post("/district_languages/")
 async def district_languages(request: DistrictRequestModel):
@@ -133,12 +142,26 @@ async def district_languages(request: DistrictRequestModel):
         print("Dataframe after reading the file:")
         print(df.head())
         
+        print(df.dtypes)
+
+        
         # Clean column names by stripping leading/trailing whitespace
         df.columns = df.columns.str.strip()
         
+        
         # Convert 'District code' to string and filter rows where 'District code' matches
-        df['District code'] = df['District code'].astype(str)
+        # df['District code'] = df['District code'].astype(str)
+        # df_filtered = df[df['District code'] == district_code]
+        
+        
+        df['District code'] = pd.to_numeric(df['District code'], errors='coerce')
+
+# Ensure the district_code is a float
+        district_code = float(district_code)
+
+# Filter the dataframe
         df_filtered = df[df['District code'] == district_code]
+
         
         # Print filtered dataframe for debugging
         print(f"Dataframe after filtering 'District code' == '{district_code}':")
