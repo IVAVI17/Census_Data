@@ -14,7 +14,6 @@ class DistrictRequestModel(BaseModel):
     district_name: str
     num_languages: int
 
-
 @app.post("/most_spoken_languages/")
 async def most_spoken_languages(request: RequestModel):
     state_name = request.state_name
@@ -35,29 +34,26 @@ async def most_spoken_languages(request: RequestModel):
             "Urban P", "Unnamed: 14", "Unnamed: 15"
         ]
 
-        print("Dataframe after reading the file:")
-        print(df.head())
-        
         df.columns = df.columns.str.strip()
         
         df['District code'] = df['District code'].astype(str)
         df_filtered = df[df['District code'] == '0.0']
         
-        print("Dataframe after filtering 'District code' == '0.0':")
-        print(df_filtered.head())
-
         if 'Mother tongue name' not in df_filtered.columns or 'Urban P' not in df_filtered.columns:
             raise HTTPException(status_code=500, detail="'Mother tongue name' or 'Urban P' column not found")
 
-        df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip()
+        df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip().str.lower()
 
-        print("Mother tongue names and Totals before grouping:")
-        print(df_filtered[['Mother tongue name', 'Urban P']])
+        # df_grouped = df_filtered[['Mother tongue name', 'Urban P']].groupby('Mother tongue name').sum().reset_index()
+        
+        df_filtered = df_filtered.sort_values(by='Urban P', ascending=False)
 
-        df_grouped = df_filtered[['Mother tongue name', 'Urban P']].groupby('Mother tongue name').sum().reset_index()
+        # Drop duplicates, keeping the first (which has the highest 'Urban P')
+        df_filtered = df_filtered.drop_duplicates(subset=['Mother tongue name'], keep='first')
+        
+        df_grouped = df_filtered[['Mother tongue name', 'Urban P']]
 
-        print("Dataframe after grouping by 'Mother tongue name':")
-        print(df_grouped.head())
+
 
         df_sorted = df_grouped.sort_values(by='Urban P', ascending=False)
 
@@ -67,8 +63,6 @@ async def most_spoken_languages(request: RequestModel):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-    
 def get_district_code(state_name: str, district_name: str) -> str:
     census_file_path = r"./District_Codes.xlsx"
     if not os.path.exists(census_file_path):
@@ -92,7 +86,6 @@ def get_district_code(state_name: str, district_name: str) -> str:
 
     district_code = row.iloc[0]['District Code']
     return str(district_code)
-
 
 @app.post("/district_languages/")
 async def district_languages(request: DistrictRequestModel):
@@ -124,7 +117,6 @@ async def district_languages(request: DistrictRequestModel):
         
         print(df.dtypes)
 
-        
         df.columns = df.columns.str.strip()
         
         df['District code'] = pd.to_numeric(df['District code'], errors='coerce')
@@ -133,14 +125,13 @@ async def district_languages(request: DistrictRequestModel):
 
         df_filtered = df[df['District code'] == district_code]
 
-        
         print(f"Dataframe after filtering 'District code' == '{district_code}':")
         print(df_filtered.head())
 
         if 'Mother tongue name' not in df_filtered.columns or 'Urban P' not in df_filtered.columns:
             raise HTTPException(status_code=500, detail="'Mother tongue name' or 'Urban P' column not found")
 
-        df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip()
+        df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip().str.lower()
 
         print("Mother tongue names and Totals before grouping:")
         print(df_filtered[['Mother tongue name', 'Urban P']])
@@ -157,8 +148,67 @@ async def district_languages(request: DistrictRequestModel):
         return {"state": state_name, "district": district_name, "top_languages": top_languages}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/generate_top_languages_report/")
+async def generate_top_languages_report():
+    data_dir = "data"
+    num_languages = 3
+    all_states_top_languages = []
 
+    try:
+        for file_name in os.listdir(data_dir):
+            if file_name.endswith(".XLSX"):
+                state_name = file_name.replace("_", " ").replace(".XLSX", "")
+                file_path = os.path.join(data_dir, file_name)
+                
+                df = pd.read_excel(file_path, skiprows=3)
+                
+                df.columns = [
+                    "Table name", "State code", "District code", "Town code", "Area name",
+                    "Mother tongue code", "Mother tongue name", "Unnamed: 7", "Unnamed: 8",
+                    "Unnamed: 9", "Rural P", "Unnamed: 11", "Unnamed: 12",
+                    "Urban P", "Unnamed: 14", "Unnamed: 15"
+                ]
 
+                df.columns = df.columns.str.strip()
+                
+                df['District code'] = df['District code'].astype(str)
+                df_filtered = df[df['District code'] == '0.0']
+                
+                if 'Mother tongue name' not in df_filtered.columns or 'Urban P' not in df_filtered.columns:
+                    continue
+
+                df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip().str.lower()
+
+               
+                df_filtered = df_filtered.sort_values(by='Urban P', ascending=False)
+
+                
+                df_filtered = df_filtered.drop_duplicates(subset=['Mother tongue name'], keep='first')
+                
+                df_grouped = df_filtered[['Mother tongue name', 'Urban P']]
+                 
+                df_sorted = df_grouped.sort_values(by='Urban P', ascending=False)
+
+                top_languages = df_sorted.head(num_languages).to_dict(orient='records')
+
+                for lang in top_languages:
+                    all_states_top_languages.append({
+                        "State": state_name,
+                        "Mother tongue name": lang["Mother tongue name"],
+                        "Urban P": lang["Urban P"]
+                    })
+        
+        if not all_states_top_languages:
+            raise HTTPException(status_code=500, detail="No data found for any state")
+        
+        report_df = pd.DataFrame(all_states_top_languages)
+        output_file_path = os.path.join(data_dir, "Top_3_Languages_Indian_States.xlsx")
+        report_df.to_excel(output_file_path, index=False)
+
+        return {"message": "Report generated successfully", "file_path": output_file_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Run the FastAPI application
 if __name__ == "__main__":
