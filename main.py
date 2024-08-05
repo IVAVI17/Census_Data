@@ -295,9 +295,14 @@ async def generate_top_languages_report():
 
 @app.get("/generate_town_languages_report/")
 async def generate_town_languages_report():
-    data_dir = "dataa"
+    data_dir = "data"
     num_languages = 3
     all_towns_top_languages = []
+
+    def keep_second_occurrence(df, subset):
+        df['occurrence'] = df.groupby(subset).cumcount() + 1
+        second_occurrence_df = df[df['occurrence'] == 2].drop(columns=['occurrence'])
+        return second_occurrence_df
 
     try:
         for file_name in os.listdir(data_dir):
@@ -326,32 +331,45 @@ async def generate_town_languages_report():
 
                 df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip().str.lower()
 
-                # Group by District code and Town code, then find top languages
-                grouped = df_filtered.groupby(['District code', 'Town code', 'Area name', 'Mother tongue name']).agg({
-                    'Total P': 'sum',
-                    'Total M': 'sum',
-                    'Total F': 'sum'
-                }).reset_index()
+                # Keep only the second occurrence of each Mother tongue name within each District code and Town code
+                df_filtered = keep_second_occurrence(df_filtered, ['Mother tongue name', 'District code', 'Town code'])
 
-                # Assuming the district names are available in the file. Adjust this part if needed.
-                district_names = df[['District code', 'Area name']].drop_duplicates().set_index('District code').to_dict()['Area name']
-                grouped['District Name'] = grouped['District code'].map(district_names)
+                # Group by District code
+                grouped_by_district = df_filtered.groupby('District code')
 
-                sorted_grouped = grouped.sort_values(by='Total P', ascending=False)
+                for district_code, district_df in grouped_by_district:
+                    # Find the District Name (Area name where Town code is 0.0)
+                    district_name = district_df[district_df['Town code'] == 0.0]['Area name'].values[0] if not district_df[district_df['Town code'] == 0.0].empty else None
+                    
+                    # Group by Town code within the district
+                    grouped_by_town = district_df.groupby(['Town code', 'Area name'])
 
-                top_languages = sorted_grouped.groupby(['District code', 'Town code', 'Area name']).head(num_languages)
+                    for (town_code, town_name), town_df in grouped_by_town:
+                        # Skip the district-level row (where Town code is 0.0)
+                        if town_code == 0.0:
+                            continue
 
-                for _, row in top_languages.iterrows():
-                    all_towns_top_languages.append({
-                        "State": state_name,
-                        "District Name": row['District Name'],
-                        "Town Code": row['Town code'],
-                        "Town": row['Area name'],
-                        "Language": row['Mother tongue name'],
-                        "Total Population": row['Total P'],
-                        "Male Population": row['Total M'],
-                        "Female Population": row['Total F']
-                    })
+                        # Find the top languages within the town
+                        town_grouped = town_df.groupby('Mother tongue name').agg({
+                            'Total P': 'sum',
+                            'Total M': 'sum',
+                            'Total F': 'sum'
+                        }).reset_index()
+
+                        sorted_town_grouped = town_grouped.sort_values(by='Total P', ascending=False)
+
+                        top_languages = sorted_town_grouped.head(num_languages)
+
+                        for _, row in top_languages.iterrows():
+                            all_towns_top_languages.append({
+                                "State": state_name,
+                                "District Name": district_name,
+                                "Town": town_name,
+                                "Language": row['Mother tongue name'],
+                                "Total Population": row['Total P'],
+                                "Male Population": row['Total M'],
+                                "Female Population": row['Total F']
+                            })
 
         if not all_towns_top_languages:
             raise HTTPException(status_code=500, detail="No data found for any town")
@@ -361,7 +379,6 @@ async def generate_town_languages_report():
         # Remove duplicate entries for state, district, and town
         report_df['State'] = report_df['State'].mask(report_df['State'].duplicated(), '')
         report_df['District Name'] = report_df['District Name'].mask(report_df['District Name'].duplicated(), '')
-        report_df['Town Code'] = report_df['Town Code'].mask(report_df['Town Code'].duplicated(), '')
         report_df['Town'] = report_df['Town'].mask(report_df['Town'].duplicated(), '')
 
         output_file_path = os.path.join(data_dir, "Top_3_Languages_Indian_Towns.xlsx")
@@ -370,7 +387,6 @@ async def generate_town_languages_report():
         return {"message": "Report generated successfully", "file_path": output_file_path}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 
