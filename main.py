@@ -391,6 +391,51 @@ async def generate_town_languages_report():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class LanguageRequestModel(BaseModel):
+    state_name: str
+    num_languages: int
+
+@app.post("/top_languages/")
+async def top_languages(request: LanguageRequestModel):
+    state_name = request.state_name
+    num_languages = request.num_languages
+    file_name = state_name.replace(" ", "_") + ".xlsx"
+    file_path = os.path.join("data1", file_name)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    try:
+        df = pd.read_excel(file_path, skiprows=6)
+        df.columns = df.columns.str.strip()
+
+        # Extracting total speakers of languages
+        total_speakers_df = df[['State name', 'Total speakers of languages Persons', 'Total speakers of languages Name']].dropna()
+        total_speakers_df.columns = ['State name', 'Persons', 'Language']
+
+        # Extracting first subsidiary languages
+        first_subsidiary_df = df[['Number of speakers speaking subsidiary languages (1st language) Persons', 'Number of speakers speaking subsidiary languages (1st language) Name']].dropna()
+        first_subsidiary_df.columns = ['Persons', 'Language']
+
+        # Extracting second subsidiary languages
+        second_subsidiary_df = df[['Number of speakers speaking subsidiary languages (2nd language) Persons', 'Number of speakers speaking subsidiary languages (2nd language) Name']].dropna()
+        second_subsidiary_df.columns = ['Persons', 'Language']
+
+        # Sorting and selecting top languages
+        total_speakers_top = total_speakers_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
+        first_subsidiary_top = first_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
+        second_subsidiary_top = second_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
+
+        return {
+            "state": state_name,
+            "top_languages": total_speakers_top,
+            "top_first_subsidiary_languages": first_subsidiary_top,
+            "top_second_subsidiary_languages": second_subsidiary_top
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 # Run the FastAPI application
