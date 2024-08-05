@@ -377,9 +377,12 @@ async def generate_town_languages_report():
         report_df = pd.DataFrame(all_towns_top_languages)
 
         # Remove duplicate entries for state, district, and town
-        report_df['State'] = report_df['State'].mask(report_df['State'].duplicated(), '')
-        report_df['District Name'] = report_df['District Name'].mask(report_df['District Name'].duplicated(), '')
-        report_df['Town'] = report_df['Town'].mask(report_df['Town'].duplicated(), '')
+        # report_df['State'] = report_df['State'].mask(report_df['State'].duplicated(), '')
+        # report_df['District Name'] = report_df['District Name'].mask(report_df['District Name'].duplicated(), '')
+        # report_df['Town'] = report_df['Town'].mask(report_df['Town'].duplicated(), '')
+        
+        # report_df[['State', 'District Name', 'Town']] = report_df[['State', 'District Name', 'Town']].fillna(method='ffill')
+
 
         output_file_path = os.path.join(data_dir, "Top_3_Languages_Indian_Towns.xlsx")
         report_df.to_excel(output_file_path, index=False)
