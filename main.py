@@ -346,8 +346,8 @@ async def generate_town_languages_report():
 
                     for (town_code, town_name), town_df in grouped_by_town:
                         # Skip the district-level row (where Town code is 0.0)
-                        if town_code == 0.0:
-                            continue
+                        # if town_code == 0.0:
+                        #     continue
 
                         # Find the top languages within the town
                         town_grouped = town_df.groupby('Mother tongue name').agg({
