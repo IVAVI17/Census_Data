@@ -395,6 +395,89 @@ class LanguageRequestModel(BaseModel):
     state_name: str
     num_languages: int
 
+# @app.post("/top_languages/")
+# async def top_languages(request: LanguageRequestModel):
+#     state_name = request.state_name
+#     num_languages = request.num_languages
+#     file_name = state_name.replace(" ", "_") + ".xlsx"
+#     file_path = os.path.join("data1", file_name)
+
+#     if not os.path.exists(file_path):
+#         raise HTTPException(status_code=404, detail="File not found")
+
+#     try:
+#         # Read the Excel file from the 7th row
+#         df = pd.read_excel(file_path, skiprows=5)
+#         df.columns = df.columns.str.strip()  # Strip any extra spaces in column names
+
+#         # Extracting total speakers of languages
+#         total_speakers_df = df.iloc[:, [1, 3, 4]].dropna()
+#         total_speakers_df.columns = ['State name', 'Language', 'Persons']
+
+#         # Extracting first subsidiary languages
+#         first_subsidiary_df = df.iloc[:, [8, 9]].dropna()
+#         first_subsidiary_df.columns = ['Language', 'Persons']
+
+#         # Extracting second subsidiary languages
+#         second_subsidiary_df = df.iloc[:, [13, 14]].dropna()
+#         second_subsidiary_df.columns = ['Language', 'Persons']
+
+#         # Sorting and selecting top languages
+#         total_speakers_top = total_speakers_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
+#         first_subsidiary_top = first_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
+#         second_subsidiary_top = second_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
+
+#         return {
+#             "state": state_name,
+#             "top_languages": total_speakers_top,
+#             "top_first_subsidiary_languages": first_subsidiary_top,
+#             "top_second_subsidiary_languages": second_subsidiary_top
+#         }
+#     except KeyError as e:
+#         raise HTTPException(status_code=500, detail=f"Column error: {str(e)}")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+def process_file(file_path: str, num_languages: int):
+    try:
+        # Read the Excel file from the 6th row (skiprows=5)
+        df = pd.read_excel(file_path, skiprows=5)
+        df.columns = df.columns.str.strip()  # Strip any extra spaces in column names
+
+        # Extracting total speakers of languages
+        total_speakers_df = df.iloc[:, [1, 3, 4]].dropna()
+        total_speakers_df.columns = ['State name', 'Language', 'Persons']
+
+        # Extracting first subsidiary languages
+        first_subsidiary_df = df.iloc[:, [8, 9]].dropna()
+        first_subsidiary_df.columns = ['Language', 'Persons']
+
+        # Extracting second subsidiary languages
+        second_subsidiary_df = df.iloc[:, [13, 14]].dropna()
+        second_subsidiary_df.columns = ['Language', 'Persons']
+
+        # Convert languages to lowercase
+        total_speakers_df['Language'] = total_speakers_df['Language'].str.lower()
+        first_subsidiary_df['Language'] = first_subsidiary_df['Language'].str.lower()
+        second_subsidiary_df['Language'] = second_subsidiary_df['Language'].str.lower()
+
+        # Ensuring unique languages with the highest number of speakers
+        total_speakers_df = total_speakers_df.groupby('Language', as_index=False).agg({'Persons': 'max'})
+        first_subsidiary_df = first_subsidiary_df.groupby('Language', as_index=False).agg({'Persons': 'max'})
+        second_subsidiary_df = second_subsidiary_df.groupby('Language', as_index=False).agg({'Persons': 'max'})
+
+        # Sorting and selecting top languages
+        total_speakers_top = total_speakers_df.sort_values(by='Persons', ascending=False).head(num_languages)
+        first_subsidiary_top = first_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages)
+        second_subsidiary_top = second_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages)
+
+        return total_speakers_top, first_subsidiary_top, second_subsidiary_top
+    except KeyError as e:
+        raise HTTPException(status_code=500, detail=f"Column error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/top_languages/")
 async def top_languages(request: LanguageRequestModel):
     state_name = request.state_name
@@ -406,35 +489,64 @@ async def top_languages(request: LanguageRequestModel):
         raise HTTPException(status_code=404, detail="File not found")
 
     try:
-        df = pd.read_excel(file_path, skiprows=6)
-        df.columns = df.columns.str.strip()
-
-        # Extracting total speakers of languages
-        total_speakers_df = df[['State name', 'Total speakers of languages Persons', 'Total speakers of languages Name']].dropna()
-        total_speakers_df.columns = ['State name', 'Persons', 'Language']
-
-        # Extracting first subsidiary languages
-        first_subsidiary_df = df[['Number of speakers speaking subsidiary languages (1st language) Persons', 'Number of speakers speaking subsidiary languages (1st language) Name']].dropna()
-        first_subsidiary_df.columns = ['Persons', 'Language']
-
-        # Extracting second subsidiary languages
-        second_subsidiary_df = df[['Number of speakers speaking subsidiary languages (2nd language) Persons', 'Number of speakers speaking subsidiary languages (2nd language) Name']].dropna()
-        second_subsidiary_df.columns = ['Persons', 'Language']
-
-        # Sorting and selecting top languages
-        total_speakers_top = total_speakers_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
-        first_subsidiary_top = first_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
-        second_subsidiary_top = second_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
+        total_speakers_top, first_subsidiary_top, second_subsidiary_top = process_file(file_path, num_languages)
 
         return {
             "state": state_name,
-            "top_languages": total_speakers_top,
-            "top_first_subsidiary_languages": first_subsidiary_top,
-            "top_second_subsidiary_languages": second_subsidiary_top
+            "top_languages": total_speakers_top.to_dict(orient='records'),
+            "top_first_subsidiary_languages": first_subsidiary_top.to_dict(orient='records'),
+            "top_second_subsidiary_languages": second_subsidiary_top.to_dict(orient='records')
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException as e:
+        raise e
 
+@app.get("/all_top_languages/")
+async def all_top_languages(num_languages: int):
+    folder_path = "data1"
+    result = []
+
+    for file_name in os.listdir(folder_path):
+        if file_name.endswith(".xlsx"):
+            file_path = os.path.join(folder_path, file_name)
+            state_name = file_name.replace("_", " ").replace(".xlsx", "")
+            try:
+                total_speakers_top, first_subsidiary_top, second_subsidiary_top = process_file(file_path, num_languages)
+                
+                # Collect data for the current state
+                for i in range(num_languages):
+                    row = [
+                        state_name,
+                        total_speakers_top.iloc[i]['Language'] if i < len(total_speakers_top) else '',
+                        total_speakers_top.iloc[i]['Persons'] if i < len(total_speakers_top) else '',
+                        first_subsidiary_top.iloc[i]['Language'] if i < len(first_subsidiary_top) else '',
+                        first_subsidiary_top.iloc[i]['Persons'] if i < len(first_subsidiary_top) else '',
+                        second_subsidiary_top.iloc[i]['Language'] if i < len(second_subsidiary_top) else '',
+                        second_subsidiary_top.iloc[i]['Persons'] if i < len(second_subsidiary_top) else ''
+                    ]
+                    result.append(row)
+            except HTTPException as e:
+                continue
+
+    # Create a DataFrame and ensure unique languages with the highest number of speakers
+    result_df = pd.DataFrame(result, columns=[
+        'State name', 'Top language', 'Number of speakers', 
+        'Top first subsidiary language', 'Number of speakers (first subsidiary)',
+        'Top second subsidiary language', 'Number of speakers (second subsidiary)'
+    ])
+
+    # Aggregation to ensure unique languages with the highest number of speakers
+    result_df = result_df.groupby(['State name', 'Top language'], as_index=False).agg({
+        'Number of speakers': 'max',
+        'Top first subsidiary language': 'first',
+        'Number of speakers (first subsidiary)': 'first',
+        'Top second subsidiary language': 'first',
+        'Number of speakers (second subsidiary)': 'first'
+    })
+
+    output_file_path = os.path.join(folder_path, "summary.xlsx")
+    result_df.to_excel(output_file_path, index=False)
+
+    return {"detail": "Summary file created", "file_path": output_file_path}
 
 
 
