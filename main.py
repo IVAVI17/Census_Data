@@ -165,7 +165,7 @@ async def district_languages(request: DistrictRequestModel):
 @app.get("/generate_top_languages_report/")
 async def generate_top_languages_report():
     data_dir = "data"
-    num_languages = 3
+    num_languages = 4
     all_states_top_languages = []
 
     try:
@@ -296,7 +296,7 @@ async def generate_top_languages_report():
 @app.get("/generate_town_languages_report/")
 async def generate_town_languages_report():
     data_dir = "data"
-    num_languages = 3
+    num_languages = 4
     all_towns_top_languages = []
 
     def keep_second_occurrence(df, subset):
@@ -375,13 +375,6 @@ async def generate_town_languages_report():
             raise HTTPException(status_code=500, detail="No data found for any town")
 
         report_df = pd.DataFrame(all_towns_top_languages)
-
-        # Remove duplicate entries for state, district, and town
-        # report_df['State'] = report_df['State'].mask(report_df['State'].duplicated(), '')
-        # report_df['District Name'] = report_df['District Name'].mask(report_df['District Name'].duplicated(), '')
-        # report_df['Town'] = report_df['Town'].mask(report_df['Town'].duplicated(), '')
-        
-        # report_df[['State', 'District Name', 'Town']] = report_df[['State', 'District Name', 'Town']].fillna(method='ffill')
 
 
         output_file_path = os.path.join(data_dir, "Top_3_Languages_Indian_Towns.xlsx")
@@ -506,9 +499,9 @@ async def all_top_languages(num_languages: int):
     result = []
 
     for file_name in os.listdir(folder_path):
-        if file_name.endswith(".xlsx"):
+        if file_name.endswith(".XLSX"):
             file_path = os.path.join(folder_path, file_name)
-            state_name = file_name.replace("_", " ").replace(".xlsx", "")
+            state_name = file_name.replace("_", " ").replace(".XLSX", "")
             try:
                 total_speakers_top, first_subsidiary_top, second_subsidiary_top = process_file(file_path, num_languages)
                 
@@ -543,7 +536,7 @@ async def all_top_languages(num_languages: int):
         'Number of speakers (second subsidiary)': 'first'
     })
 
-    output_file_path = os.path.join(folder_path, "summary.xlsx")
+    output_file_path = os.path.join(folder_path, "All_State_Bilingual_Data.xlsx")
     result_df.to_excel(output_file_path, index=False)
 
     return {"detail": "Summary file created", "file_path": output_file_path}
