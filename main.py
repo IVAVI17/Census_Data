@@ -293,6 +293,97 @@ async def generate_top_languages_report():
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=str(e))
 
+# @app.get("/generate_town_languages_report/")
+# async def generate_town_languages_report():
+#     data_dir = "data"
+#     num_languages = 4
+#     all_towns_top_languages = []
+
+#     def keep_second_occurrence(df, subset):
+#         df['occurrence'] = df.groupby(subset).cumcount() + 1
+#         second_occurrence_df = df[df['occurrence'] == 2].drop(columns=['occurrence'])
+#         return second_occurrence_df
+
+#     try:
+#         for file_name in os.listdir(data_dir):
+#             if file_name.endswith(".XLSX"):
+#                 state_name = file_name.replace("_", " ").replace(".XLSX", "")
+#                 file_path = os.path.join(data_dir, file_name)
+                
+#                 df = pd.read_excel(file_path, skiprows=3)
+                
+#                 df.columns = [
+#                     "Table name", "State code", "District code", "Town code", "Area name",
+#                     "Mother tongue code", "Mother tongue name", "Total P", "Total M", "Total F",
+#                     "Rural P", "Rural M", "Rural F",
+#                     "Urban P", "Urban M", "Urban F"
+#                 ]
+
+#                 df.columns = df.columns.str.strip()
+
+#                 # Filter out rows where District code is '0.0' which corresponds to the entire state
+#                 df['District code'] = pd.to_numeric(df['District code'], errors='coerce')
+#                 df['Town code'] = pd.to_numeric(df['Town code'], errors='coerce')
+#                 df_filtered = df[df['District code'] != 0]
+
+#                 if 'Mother tongue name' not in df_filtered.columns or 'Total P' not in df_filtered.columns:
+#                     continue
+
+#                 df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip().str.lower()
+
+#                 # Keep only the second occurrence of each Mother tongue name within each District code and Town code
+#                 df_filtered = keep_second_occurrence(df_filtered, ['Mother tongue name', 'District code', 'Town code'])
+
+#                 # Group by District code
+#                 grouped_by_district = df_filtered.groupby('District code')
+
+#                 for district_code, district_df in grouped_by_district:
+#                     # Find the District Name (Area name where Town code is 0.0)
+#                     district_name = district_df[district_df['Town code'] == 0.0]['Area name'].values[0] if not district_df[district_df['Town code'] == 0.0].empty else None
+                    
+#                     # Group by Town code within the district
+#                     grouped_by_town = district_df.groupby(['Town code', 'Area name'])
+
+#                     for (town_code, town_name), town_df in grouped_by_town:
+#                         # Skip the district-level row (where Town code is 0.0)
+#                         # if town_code == 0.0:
+#                         #     continue
+
+#                         # Find the top languages within the town
+#                         town_grouped = town_df.groupby('Mother tongue name').agg({
+#                             'Total P': 'sum',
+#                             'Total M': 'sum',
+#                             'Total F': 'sum'
+#                         }).reset_index()
+
+#                         sorted_town_grouped = town_grouped.sort_values(by='Total P', ascending=False)
+
+#                         top_languages = sorted_town_grouped.head(num_languages)
+
+#                         for _, row in top_languages.iterrows():
+#                             all_towns_top_languages.append({
+#                                 "State": state_name,
+#                                 "District Name": district_name,
+#                                 "Town": town_name,
+#                                 "Language": row['Mother tongue name'],
+#                                 "Total Population": row['Total P'],
+#                                 "Male Population": row['Total M'],
+#                                 "Female Population": row['Total F']
+#                             })
+
+#         if not all_towns_top_languages:
+#             raise HTTPException(status_code=500, detail="No data found for any town")
+
+#         report_df = pd.DataFrame(all_towns_top_languages)
+
+
+#         output_file_path = os.path.join(data_dir, "Top_3_Languages_Indian_Towns.xlsx")
+#         report_df.to_excel(output_file_path, index=False)
+
+#         return {"message": "Report generated successfully", "file_path": output_file_path}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/generate_town_languages_report/")
 async def generate_town_languages_report():
     data_dir = "data"
@@ -304,14 +395,24 @@ async def generate_town_languages_report():
         second_occurrence_df = df[df['occurrence'] == 2].drop(columns=['occurrence'])
         return second_occurrence_df
 
+    def clean_town_name(name):
+        if isinstance(name, str):
+            return name.split(' (')[0].strip().lower()
+        return name
+
     try:
+        # Load pincode data
+        pincode_df = pd.read_csv(os.path.join(data_dir, "Updated_Pincode.csv"))
+        pincode_df['Office Name'] = pincode_df['Office Name'].apply(clean_town_name)
+        pincode_map = pincode_df.groupby('Office Name')['Pincode'].apply(list).to_dict()
+
         for file_name in os.listdir(data_dir):
             if file_name.endswith(".XLSX"):
                 state_name = file_name.replace("_", " ").replace(".XLSX", "")
                 file_path = os.path.join(data_dir, file_name)
-                
+
                 df = pd.read_excel(file_path, skiprows=3)
-                
+
                 df.columns = [
                     "Table name", "State code", "District code", "Town code", "Area name",
                     "Mother tongue code", "Mother tongue name", "Total P", "Total M", "Total F",
@@ -340,15 +441,11 @@ async def generate_town_languages_report():
                 for district_code, district_df in grouped_by_district:
                     # Find the District Name (Area name where Town code is 0.0)
                     district_name = district_df[district_df['Town code'] == 0.0]['Area name'].values[0] if not district_df[district_df['Town code'] == 0.0].empty else None
-                    
+
                     # Group by Town code within the district
                     grouped_by_town = district_df.groupby(['Town code', 'Area name'])
 
                     for (town_code, town_name), town_df in grouped_by_town:
-                        # Skip the district-level row (where Town code is 0.0)
-                        # if town_code == 0.0:
-                        #     continue
-
                         # Find the top languages within the town
                         town_grouped = town_df.groupby('Mother tongue name').agg({
                             'Total P': 'sum',
@@ -360,6 +457,9 @@ async def generate_town_languages_report():
 
                         top_languages = sorted_town_grouped.head(num_languages)
 
+                        cleaned_town_name = clean_town_name(town_name)
+                        pincodes = pincode_map.get(cleaned_town_name, [])
+
                         for _, row in top_languages.iterrows():
                             all_towns_top_languages.append({
                                 "State": state_name,
@@ -368,7 +468,8 @@ async def generate_town_languages_report():
                                 "Language": row['Mother tongue name'],
                                 "Total Population": row['Total P'],
                                 "Male Population": row['Total M'],
-                                "Female Population": row['Total F']
+                                "Female Population": row['Total F'],
+                                "Pincode": pincodes
                             })
 
         if not all_towns_top_languages:
@@ -376,13 +477,13 @@ async def generate_town_languages_report():
 
         report_df = pd.DataFrame(all_towns_top_languages)
 
-
-        output_file_path = os.path.join(data_dir, "Top_3_Languages_Indian_Towns.xlsx")
+        output_file_path = os.path.join(data_dir, "Top_4_Languages_Indian_Towns_with_Pincode.xlsx")
         report_df.to_excel(output_file_path, index=False)
 
         return {"message": "Report generated successfully", "file_path": output_file_path}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 class LanguageRequestModel(BaseModel):
     state_name: str
