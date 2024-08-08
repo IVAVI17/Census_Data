@@ -300,163 +300,6 @@ async def generate_top_languages_report():
         raise HTTPException(status_code=500, detail=str(e))
 
     
-# @app.get("/generate_town_languages_report/")
-# async def generate_town_languages_report():
-#     data_dir = "dataa"
-#     num_languages = 3
-#     all_towns_top_languages = []
-
-#     try:
-#         for file_name in os.listdir(data_dir):
-#             if file_name.endswith(".XLSX"):
-#                 state_name = file_name.replace("_", " ").replace(".XLSX", "")
-#                 file_path = os.path.join(data_dir, file_name)
-                
-#                 df = pd.read_excel(file_path, skiprows=3)
-                
-#                 df.columns = [
-#                     "Table name", "State code", "District code", "Town code", "Area name",
-#                     "Mother tongue code", "Mother tongue name", "Total P", "Total M", "Total F",
-#                     "Rural P", "Rural M", "Rural F",
-#                     "Urban P", "Urban M", "Urban F"
-#                 ]
-
-#                 df.columns = df.columns.str.strip()
-
-#                 # Filter out rows where District code is '0.0' which corresponds to the entire state
-#                 df['District code'] = pd.to_numeric(df['District code'], errors='coerce')
-#                 df['Town code'] = pd.to_numeric(df['Town code'], errors='coerce')
-#                 df_filtered = df[df['District code'] != 0]
-
-#                 if 'Mother tongue name' not in df_filtered.columns or 'Total P' not in df_filtered.columns:
-#                     continue
-
-#                 df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip().str.lower()
-
-#                 # Group by District code and Town code, then find top languages
-#                 grouped = df_filtered.groupby(['District code', 'Town code', 'Area name', 'Mother tongue name']).agg({
-#                     'Total P': 'sum',
-#                     'Total M': 'sum',
-#                     'Total F': 'sum'
-#                 }).reset_index()
-
-#                 sorted_grouped = grouped.sort_values(by='Total P', ascending=False)
-
-#                 top_languages = sorted_grouped.groupby(['District code', 'Town code', 'Area name']).head(num_languages)
-
-#                 for _, row in top_languages.iterrows():
-#                     all_towns_top_languages.append({
-#                         "State": state_name,
-#                         "District Code": row['District code'],
-#                         "Town Code": row['Town code'],
-#                         "Town": row['Area name'],
-#                         "Language": row['Mother tongue name'],
-#                         "Total Population": row['Total P'],
-#                         "Male Population": row['Total M'],
-#                         "Female Population": row['Total F']
-#                     })
-
-#         if not all_towns_top_languages:
-#             raise HTTPException(status_code=500, detail="No data found for any town")
-
-#         report_df = pd.DataFrame(all_towns_top_languages)
-#         output_file_path = os.path.join(data_dir, "Top_3_Languages_Indian_Towns.xlsx")
-#         report_df.to_excel(output_file_path, index=False)
-
-#         return {"message": "Report generated successfully", "file_path": output_file_path}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-# @app.get("/generate_town_languages_report/")
-# async def generate_town_languages_report():
-#     data_dir = "data"
-#     num_languages = 4
-#     all_towns_top_languages = []
-
-#     def keep_second_occurrence(df, subset):
-#         df['occurrence'] = df.groupby(subset).cumcount() + 1
-#         second_occurrence_df = df[df['occurrence'] == 2].drop(columns=['occurrence'])
-#         return second_occurrence_df
-
-#     try:
-#         for file_name in os.listdir(data_dir):
-#             if file_name.endswith(".XLSX"):
-#                 state_name = file_name.replace("_", " ").replace(".XLSX", "")
-#                 file_path = os.path.join(data_dir, file_name)
-                
-#                 df = pd.read_excel(file_path, skiprows=3)
-                
-#                 df.columns = [
-#                     "Table name", "State code", "District code", "Town code", "Area name",
-#                     "Mother tongue code", "Mother tongue name", "Total P", "Total M", "Total F",
-#                     "Rural P", "Rural M", "Rural F",
-#                     "Urban P", "Urban M", "Urban F"
-#                 ]
-
-#                 df.columns = df.columns.str.strip()
-
-#                 # Filter out rows where District code is '0.0' which corresponds to the entire state
-#                 df['District code'] = pd.to_numeric(df['District code'], errors='coerce')
-#                 df['Town code'] = pd.to_numeric(df['Town code'], errors='coerce')
-#                 df_filtered = df[df['District code'] != 0]
-
-#                 if 'Mother tongue name' not in df_filtered.columns or 'Total P' not in df_filtered.columns:
-#                     continue
-
-#                 df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip().str.lower()
-
-#                 # Keep only the second occurrence of each Mother tongue name within each District code and Town code
-#                 df_filtered = keep_second_occurrence(df_filtered, ['Mother tongue name', 'District code', 'Town code'])
-
-#                 # Group by District code
-#                 grouped_by_district = df_filtered.groupby('District code')
-
-#                 for district_code, district_df in grouped_by_district:
-#                     # Find the District Name (Area name where Town code is 0.0)
-#                     district_name = district_df[district_df['Town code'] == 0.0]['Area name'].values[0] if not district_df[district_df['Town code'] == 0.0].empty else None
-                    
-#                     # Group by Town code within the district
-#                     grouped_by_town = district_df.groupby(['Town code', 'Area name'])
-
-#                     for (town_code, town_name), town_df in grouped_by_town:
-#                         # Skip the district-level row (where Town code is 0.0)
-#                         # if town_code == 0.0:
-#                         #     continue
-
-#                         # Find the top languages within the town
-#                         town_grouped = town_df.groupby('Mother tongue name').agg({
-#                             'Total P': 'sum',
-#                             'Total M': 'sum',
-#                             'Total F': 'sum'
-#                         }).reset_index()
-
-#                         sorted_town_grouped = town_grouped.sort_values(by='Total P', ascending=False)
-
-#                         top_languages = sorted_town_grouped.head(num_languages)
-
-#                         for _, row in top_languages.iterrows():
-#                             all_towns_top_languages.append({
-#                                 "State": state_name,
-#                                 "District Name": district_name,
-#                                 "Town": town_name,
-#                                 "Language": row['Mother tongue name'],
-#                                 "Total Population": row['Total P'],
-#                                 "Male Population": row['Total M'],
-#                                 "Female Population": row['Total F']
-#                             })
-
-#         if not all_towns_top_languages:
-#             raise HTTPException(status_code=500, detail="No data found for any town")
-
-#         report_df = pd.DataFrame(all_towns_top_languages)
-
-
-#         output_file_path = os.path.join(data_dir, "Top_3_Languages_Indian_Towns.xlsx")
-#         report_df.to_excel(output_file_path, index=False)
-
-#         return {"message": "Report generated successfully", "file_path": output_file_path}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/generate_town_languages_report/")
 async def generate_town_languages_report():
@@ -475,7 +318,6 @@ async def generate_town_languages_report():
         return name
 
     try:
-        # Load pincode data
         pincode_df = pd.read_csv(os.path.join(data_dir, "Updated_Pincode.csv"))
         pincode_df['Office Name'] = pincode_df['Office Name'].apply(clean_town_name)
         pincode_map = pincode_df.groupby('Office Name')['Pincode'].apply(list).to_dict()
@@ -496,7 +338,6 @@ async def generate_town_languages_report():
 
                 df.columns = df.columns.str.strip()
 
-                # Filter out rows where District code is '0.0' which corresponds to the entire state
                 df['District code'] = pd.to_numeric(df['District code'], errors='coerce')
                 df['Town code'] = pd.to_numeric(df['Town code'], errors='coerce')
                 df_filtered = df[df['District code'] != 0]
@@ -506,10 +347,8 @@ async def generate_town_languages_report():
 
                 df_filtered['Mother tongue name'] = df_filtered['Mother tongue name'].str.strip().str.replace(r'^\d+\s*', '', regex=True).str.strip().str.lower()
 
-                # Keep only the second occurrence of each Mother tongue name within each District code and Town code
                 df_filtered = keep_second_occurrence(df_filtered, ['Mother tongue name', 'District code', 'Town code'])
 
-                # Group by District code
                 grouped_by_district = df_filtered.groupby('District code')
 
                 for district_code, district_df in grouped_by_district:
@@ -563,79 +402,29 @@ class LanguageRequestModel(BaseModel):
     state_name: str
     num_languages: int
 
-# @app.post("/top_languages/")
-# async def top_languages(request: LanguageRequestModel):
-#     state_name = request.state_name
-#     num_languages = request.num_languages
-#     file_name = state_name.replace(" ", "_") + ".xlsx"
-#     file_path = os.path.join("data1", file_name)
-
-#     if not os.path.exists(file_path):
-#         raise HTTPException(status_code=404, detail="File not found")
-
-#     try:
-#         # Read the Excel file from the 7th row
-#         df = pd.read_excel(file_path, skiprows=5)
-#         df.columns = df.columns.str.strip()  # Strip any extra spaces in column names
-
-#         # Extracting total speakers of languages
-#         total_speakers_df = df.iloc[:, [1, 3, 4]].dropna()
-#         total_speakers_df.columns = ['State name', 'Language', 'Persons']
-
-#         # Extracting first subsidiary languages
-#         first_subsidiary_df = df.iloc[:, [8, 9]].dropna()
-#         first_subsidiary_df.columns = ['Language', 'Persons']
-
-#         # Extracting second subsidiary languages
-#         second_subsidiary_df = df.iloc[:, [13, 14]].dropna()
-#         second_subsidiary_df.columns = ['Language', 'Persons']
-
-#         # Sorting and selecting top languages
-#         total_speakers_top = total_speakers_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
-#         first_subsidiary_top = first_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
-#         second_subsidiary_top = second_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages).to_dict(orient='records')
-
-#         return {
-#             "state": state_name,
-#             "top_languages": total_speakers_top,
-#             "top_first_subsidiary_languages": first_subsidiary_top,
-#             "top_second_subsidiary_languages": second_subsidiary_top
-#         }
-#     except KeyError as e:
-#         raise HTTPException(status_code=500, detail=f"Column error: {str(e)}")
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
 
 def process_file(file_path: str, num_languages: int):
     try:
-        # Read the Excel file from the 6th row (skiprows=5)
         df = pd.read_excel(file_path, skiprows=5)
         df.columns = df.columns.str.strip()  # Strip any extra spaces in column names
 
-        # Extracting total speakers of languages
         total_speakers_df = df.iloc[:, [1, 3, 4]].dropna()
         total_speakers_df.columns = ['State name', 'Language', 'Persons']
 
-        # Extracting first subsidiary languages
         first_subsidiary_df = df.iloc[:, [8, 9]].dropna()
         first_subsidiary_df.columns = ['Language', 'Persons']
 
-        # Extracting second subsidiary languages
         second_subsidiary_df = df.iloc[:, [13, 14]].dropna()
         second_subsidiary_df.columns = ['Language', 'Persons']
 
-        # Convert languages to lowercase
         total_speakers_df['Language'] = total_speakers_df['Language'].str.lower()
         first_subsidiary_df['Language'] = first_subsidiary_df['Language'].str.lower()
         second_subsidiary_df['Language'] = second_subsidiary_df['Language'].str.lower()
 
-        # Ensuring unique languages with the highest number of speakers
         total_speakers_df = total_speakers_df.groupby('Language', as_index=False).agg({'Persons': 'max'})
         first_subsidiary_df = first_subsidiary_df.groupby('Language', as_index=False).agg({'Persons': 'max'})
         second_subsidiary_df = second_subsidiary_df.groupby('Language', as_index=False).agg({'Persons': 'max'})
 
-        # Sorting and selecting top languages
         total_speakers_top = total_speakers_df.sort_values(by='Persons', ascending=False).head(num_languages)
         first_subsidiary_top = first_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages)
         second_subsidiary_top = second_subsidiary_df.sort_values(by='Persons', ascending=False).head(num_languages)
@@ -680,7 +469,6 @@ async def all_top_languages(num_languages: int):
             try:
                 total_speakers_top, first_subsidiary_top, second_subsidiary_top = process_file(file_path, num_languages)
                 
-                # Collect data for the current state
                 for i in range(num_languages):
                     row = [
                         state_name,
@@ -695,14 +483,12 @@ async def all_top_languages(num_languages: int):
             except HTTPException as e:
                 continue
 
-    # Create a DataFrame and ensure unique languages with the highest number of speakers
     result_df = pd.DataFrame(result, columns=[
         'State name', 'Top language', 'Number of speakers', 
         'Top first subsidiary language', 'Number of speakers (first subsidiary)',
         'Top second subsidiary language', 'Number of speakers (second subsidiary)'
     ])
 
-    # Aggregation to ensure unique languages with the highest number of speakers
     result_df = result_df.groupby(['State name', 'Top language'], as_index=False).agg({
         'Number of speakers': 'max',
         'Top first subsidiary language': 'first',
